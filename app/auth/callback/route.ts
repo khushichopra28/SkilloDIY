@@ -1,2 +1,88 @@
-import { NextResponse } from 'next/server';import { createClient } from '@/lib/supabase/server';
-export async function GET(request:Request){const url=new URL(request.url),code=url.searchParams.get('code'),next=url.searchParams.get('next')||'/';if(code){const supabase=await createClient();await supabase.auth.exchangeCodeForSession(code);}return NextResponse.redirect(new URL(next,url.origin));}
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+
+function safePath(value: string | null) {
+  return value && value.startsWith('/') && !value.startsWith('//') ? value : '/';
+}
+
+function loginFor(path: string) {
+  return path.startsWith('/admin') ? '/admin/login' : '/handler/login';
+}
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const requested = safePath(url.searchParams.get('next'));
+  const code = url.searchParams.get('code');
+  const providerError = url.searchParams.get('error');
+  const isPasswordReset = requested.startsWith('/update-password');
+
+  if (providerError) {
+    const target = new URL(loginFor(requested), url.origin);
+    target.searchParams.set('error', providerError === 'access_denied' ? 'cancelled' : 'google');
+    return NextResponse.redirect(target);
+  }
+  if (!code) {
+    const target = new URL(loginFor(requested), url.origin);
+    target.searchParams.set('error', process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'session' : 'configuration');
+    return NextResponse.redirect(target);
+  }
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    const target = new URL(loginFor(requested), url.origin);
+    target.searchParams.set('error', 'configuration');
+    return NextResponse.redirect(target);
+  }
+
+  const supabase = await createClient();
+  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+  if (exchangeError) {
+    const target = new URL(loginFor(requested), url.origin);
+    target.searchParams.set('error', 'session');
+    return NextResponse.redirect(target);
+  }
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    await supabase.auth.signOut();
+    const target = new URL(loginFor(requested), url.origin);
+    target.searchParams.set('error', 'session');
+    return NextResponse.redirect(target);
+  }
+
+  // Recovery links need their authenticated session to set a new password.
+  if (isPasswordReset) return NextResponse.redirect(new URL(requested, url.origin));
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role,status,handler_id')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (profileError || !profile) {
+    await supabase.auth.signOut();
+    const target = new URL(loginFor(requested), url.origin);
+    target.searchParams.set('error', profileError ? 'profile_lookup' : 'unlinked');
+    return NextResponse.redirect(target);
+  }
+  if (profile.status !== 'active') {
+    await supabase.auth.signOut();
+    const target = new URL(loginFor(requested), url.origin);
+    target.searchParams.set('error', 'inactive');
+    return NextResponse.redirect(target);
+  }
+  if (profile.role === 'handler') {
+    if (!profile.handler_id) {
+      await supabase.auth.signOut();
+      const target = new URL('/handler/login', url.origin);
+      target.searchParams.set('error', 'unlinked');
+      return NextResponse.redirect(target);
+    }
+    return NextResponse.redirect(new URL('/handler', url.origin));
+  }
+  if (profile.role === 'super_admin' || profile.role === 'city_admin') {
+    return NextResponse.redirect(new URL('/admin', url.origin));
+  }
+
+  await supabase.auth.signOut();
+  const target = new URL(loginFor(requested), url.origin);
+  target.searchParams.set('error', 'unlinked');
+  return NextResponse.redirect(target);
+}
