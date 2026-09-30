@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';import {hasSupabaseConfig} from '@/lib/supabase/config';
 
 function safePath(value: string | null) {
   return value && value.startsWith('/') && !value.startsWith('//') ? value : '/';
@@ -23,10 +23,10 @@ export async function GET(request: Request) {
   }
   if (!code) {
     const target = new URL(loginFor(requested), url.origin);
-    target.searchParams.set('error', process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'session' : 'configuration');
+    target.searchParams.set('error', hasSupabaseConfig() ? 'session' : 'configuration');
     return NextResponse.redirect(target);
   }
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  if (!hasSupabaseConfig()) {
     const target = new URL(loginFor(requested), url.origin);
     target.searchParams.set('error', 'configuration');
     return NextResponse.redirect(target);

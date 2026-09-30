@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { getSupabaseConfig } from '@/lib/supabase/config';
 
 function goTo(request: NextRequest, path: string, error?: string) {
   const target = request.nextUrl.clone();
@@ -15,8 +16,7 @@ export async function middleware(request: NextRequest) {
   const isHandlerArea = path === '/handler' || path.startsWith('/handler/');
   const isAdminLogin = path === '/admin/login';
   const isHandlerLogin = path === '/handler/login';
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const { url, key } = getSupabaseConfig();
 
   // Never serve a protected workspace when its identity service is unconfigured.
   if (!url || !key) {

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';import {hasSupabaseConfig} from '@/lib/supabase/config';
 import AdminSection from '@/components/admin-section';
 
 const config:Record<string,{title:string;intro:string;table:string;select:string;order:string;limit?:number}>={
@@ -14,5 +14,5 @@ const config:Record<string,{title:string;intro:string;table:string;select:string
  reports:{title:'Operations reports',intro:'Export filtered source records for attendance, event completion, handler participation and reimbursements.',table:'expenses',select:'id,event_id,handler_id,category,amount,expense_date,status,review_note,created_at',order:'created_at',limit:500},
  settings:{title:'Organization settings',intro:'Organization identity, city defaults and workspace configuration.',table:'organizations',select:'id,name,slug,created_at',order:'name'},
 };
-export default async function AdminSectionPage({params}:{params:Promise<{section:string}>}){const {section}=await params,c=config[section];if(!c)return <main className="data-page"><section className="config-notice"><h1>Page not found</h1><p>This workspace page is not available.</p><Link href="/admin">Return to dashboard</Link></section></main>;if(!process.env.NEXT_PUBLIC_SUPABASE_URL||!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)return <main className="data-page"><section className="config-notice"><h1>Connect Supabase</h1><p>Configure the workspace data connection to open {c.title.toLowerCase()}.</p></section></main>;
+export default async function AdminSectionPage({params}:{params:Promise<{section:string}>}){const {section}=await params,c=config[section];if(!c)return <main className="data-page"><section className="config-notice"><h1>Page not found</h1><p>This workspace page is not available.</p><Link href="/admin">Return to dashboard</Link></section></main>;if(!hasSupabaseConfig())return <main className="data-page"><section className="config-notice"><h1>Connect Supabase</h1><p>Configure the workspace data connection to open {c.title.toLowerCase()}.</p></section></main>;
 const db=await createClient(),{data:{user}}=await db.auth.getUser();if(!user)return null;const {data,error}=await db.from(c.table as any).select(c.select).order(c.order,{ascending:section==='calendar'||section==='clients'||section==='venues'||section==='inventory'}).limit(c.limit??200);return <AdminSection section={section} title={c.title} intro={c.intro} records={(data??[]) as unknown as Record<string,any>[]} loadError={Boolean(error)}/>}

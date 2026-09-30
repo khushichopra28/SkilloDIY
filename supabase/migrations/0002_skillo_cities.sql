@@ -206,7 +206,25 @@ create policy event_admin_write on events for all using(organization_id=(select 
 drop policy assignment_read on event_assignments;
 create policy assignment_read on event_assignments for select using(handler_id=auth.uid() or public.can_manage_event(event_id));
 drop policy assignment_admin_write on event_assignments;
-create policy assignment_admin_write on event_assignments for all using(public.can_manage_event(event_id)) with check(public.can_manage_event(event_id) and exists(select 1 from profiles p where p.id=handler_id and p.organization_id=(select organization_id from events where id=event_id)));
+create policy assignment_admin_write
+on event_assignments
+for all
+using (
+  public.can_manage_event(event_assignments.event_id)
+)
+with check (
+  public.can_manage_event(event_assignments.event_id)
+  and exists (
+    select 1
+    from profiles p
+    where p.id = event_assignments.handler_id
+      and p.organization_id = (
+        select e.organization_id
+        from events e
+        where e.id = event_assignments.event_id
+      )
+  )
+);
 drop policy attendance_read on attendance;
 create policy attendance_read on attendance for select using(handler_id=auth.uid() or public.can_manage_event(event_id));
 drop policy attendance_self_insert on attendance;

@@ -5,12 +5,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Eye, EyeOff, LoaderCircle, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { hasSupabaseConfig } from '@/lib/supabase/config';
 
 type Portal = 'admin' | 'handler';
 type BusyState = '' | 'password' | 'google';
 type Profile = { role: 'super_admin' | 'city_admin' | 'handler'; status: string; handler_id: string | null };
 
-const configured = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+const configured = hasSupabaseConfig();
 
 function messageForCode(code: string | undefined, portal: Portal) {
   if (code === 'configuration') return 'This workspace is not connected to Supabase yet. Ask your administrator to finish setup.';

@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { ArrowUpRight, CalendarDays, CheckCircle2, ClipboardCheck, CreditCard, MapPin } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';import {hasSupabaseConfig} from '@/lib/supabase/config';
 
 const indiaToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 export default async function HandlerDashboard(){
- if(!process.env.NEXT_PUBLIC_SUPABASE_URL||!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)return <Setup/>;
+ if(!hasSupabaseConfig())return <Setup/>;
  const db=await createClient(),{data:{user}}=await db.auth.getUser();if(!user)return <Setup/>;
  const [{data:profile},{data:assignments},{data:expenses}]=await Promise.all([
   db.from('profiles').select('full_name,handler_id').eq('id',user.id).maybeSingle(),
