@@ -166,11 +166,17 @@ export default function DigitalIdCard({ profile, record, origin = '', photoDataU
             <path d="M6 6h418v146H6z" fill="url(#id-weave)" opacity=".5"/>
             <path d="M6 137h418v8H6z" fill="#147b79" opacity=".75"/>
 
-            {/* Header Badge & Brand */}
-            <rect x="34" y="34" width="44" height="44" rx="12" fill="#123e3d"/>
-            <text x="56" y="65" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="27" fontWeight="800" fill="#b8e5e2">E</text>
-            <text x="91" y="52" fontFamily="Arial,sans-serif" fontSize="23" fontWeight="800" letterSpacing="2.2" fill="#123e3d">EVENTOPS</text>
-            <text x="92" y="72" fontFamily="Arial,sans-serif" fontSize="9.5" fontWeight="700" letterSpacing="2.3" fill="#467472">EVENT WORKFORCE</text>
+            {/* Header Brand with Official Skillo DIY Crafts Logo */}
+            <EventOpsLogo
+              asSvg
+              x={22}
+              y={16}
+              width={66}
+              height={74}
+              alt="Skillo DIY Crafts"
+            />
+            <text x="94" y="52" fontFamily="Arial,sans-serif" fontSize="23" fontWeight="800" letterSpacing="2.2" fill="#123e3d">EVENTOPS</text>
+            <text x="95" y="72" fontFamily="Arial,sans-serif" fontSize="9.5" fontWeight="700" letterSpacing="2.3" fill="#467472">EVENT WORKFORCE</text>
             <text x="36" y="111" fontFamily="Arial,sans-serif" fontSize="10" fontWeight="700" letterSpacing="2.3" fill="#397471">STAFF IDENTITY CREDENTIAL</text>
 
             {showSlotHole && (
