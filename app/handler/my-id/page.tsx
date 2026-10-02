@@ -20,7 +20,7 @@ export default async function MyIdPage() {
   // to avoid PGRST201 ambiguous relationship errors.
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('id,role,full_name,email,phone,job_title,team,handler_id,status,joined_at,photo_path,home_city_id,cities!profiles_home_city_id_fkey(name)')
+    .select('id,role,full_name,email,phone,job_title,team,handler_id,status,joined_at,photo_path,home_city_id,verification_status,cities!profiles_home_city_id_fkey(name)')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -43,46 +43,28 @@ export default async function MyIdPage() {
   if (!profile.handler_id) redirect('/handler/onboarding');
 
   const [
-    { data: verification, error: verificationError },
     { data: digitalId, error: digitalIdError },
     { data: citiesData }
   ] = await Promise.all([
-    supabase.from('profiles').select('verification_status').eq('id', user.id).maybeSingle(),
     supabase.from('digital_ids').select('verification_token,valid_until,created_at').eq('profile_id', user.id).maybeSingle(),
     supabase.from('cities').select('id,name,code').eq('active', true).order('name')
   ]);
 
-  if (verificationError) {
-    console.error('[handler-my-id] Verification status query failed', {
-      code: verificationError.code ?? null,
-      message: verificationError.message ?? null,
-      details: verificationError.details ?? null,
-      hint: verificationError.hint ?? null,
-    });
-  }
-  const verificationStatus = verificationError ? null : verification?.verification_status ?? null;
+  const verificationStatus = profile.verification_status ?? (digitalId?.verification_token ? 'VERIFIED' : null);
 
   let photoDataUrl: string | null = null;
   let photoUnavailable = false;
   if (profile.photo_path) {
     // Handler photos are stored in the private `documents` bucket by onboarding.
-    // Download through the authenticated Supabase client so exports never depend
-    // on cross-origin access to a short-lived signed URL.
+    // Use an authenticated signed URL so SSR props remain lightweight and avoid
+    // React 19 RSC serialization recursion limits with large base64 buffers.
     const belongsToUser = profile.photo_path.startsWith(`${user.id}/`);
     if (belongsToUser) {
-      const { data: photo, error: photoError } = await supabase.storage
+      const { data: signed, error: photoError } = await supabase.storage
         .from('documents')
-        .download(profile.photo_path);
-      if (!photoError && photo) {
-        const contentType = ['image/jpeg', 'image/png', 'image/webp'].includes(photo.type)
-          ? photo.type
-          : null;
-        if (contentType) {
-          const encoded = Buffer.from(await photo.arrayBuffer()).toString('base64');
-          photoDataUrl = `data:${contentType};base64,${encoded}`;
-        } else {
-          photoUnavailable = true;
-        }
+        .createSignedUrl(profile.photo_path, 3600);
+      if (!photoError && signed?.signedUrl) {
+        photoDataUrl = signed.signedUrl;
       } else {
         photoUnavailable = true;
         console.warn('[handler-my-id] Profile photo unavailable', { code: photoError?.name ?? 'storage_error' });
@@ -114,7 +96,7 @@ export default async function MyIdPage() {
       origin={process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || ''}
       photoDataUrl={photoDataUrl}
       photoUnavailable={photoUnavailable}
-      verificationUnavailable={Boolean(verificationError)}
+      verificationUnavailable={!verificationStatus}
       digitalIdUnavailable={Boolean(digitalIdError)}
     />
   );
