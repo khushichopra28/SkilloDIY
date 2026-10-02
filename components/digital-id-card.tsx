@@ -147,9 +147,6 @@ export default function DigitalIdCard({ profile, record, origin = '', photoDataU
             <text x="91" y="52" fontFamily="Arial,sans-serif" fontSize="23" fontWeight="800" letterSpacing="2.2" fill="#123e3d">EVENTOPS</text>
             <text x="92" y="72" fontFamily="Arial,sans-serif" fontSize="9.5" fontWeight="700" letterSpacing="2.3" fill="#467472">EVENT WORKFORCE</text>
             <text x="36" y="111" fontFamily="Arial,sans-serif" fontSize="10" fontWeight="700" letterSpacing="2.3" fill="#397471">STAFF IDENTITY CREDENTIAL</text>
-            <rect x="300" y="37" width="92" height="25" rx="12.5" fill={isVerified ? '#e5f4ec' : status === 'pending' ? '#fff2d9' : status === 'suspended' || status === 'unavailable' ? '#e7eeee' : '#fff0ed'} stroke={isVerified ? '#91c9a8' : status === 'pending' ? '#eacb8d' : status === 'suspended' || status === 'unavailable' ? '#b9c9c7' : '#e8b7b0'}/>
-            <circle cx="314" cy="49.5" r="4" fill={isVerified ? '#258052' : status === 'pending' ? '#a66c19' : status === 'suspended' || status === 'unavailable' ? '#667b79' : '#a34e43'}/>
-            <text x="324" y="53" fontFamily="Arial,sans-serif" fontSize="7.3" fontWeight="800" letterSpacing=".35" fill={isVerified ? '#246443' : status === 'pending' ? '#815715' : status === 'suspended' || status === 'unavailable' ? '#526967' : '#914940'}>{statusLabel(status)}</text>
 
             {showSlotHole && <g aria-hidden="true"><ellipse cx="215" cy="20" rx="21" ry="7" fill="#637776" opacity=".55"/><rect x="191" y="7" width="48" height="22" rx="10" fill="url(#id-metal)" opacity=".85"/><ellipse cx="215" cy="18" rx="9" ry="3.8" fill="#294746"/><ellipse cx="215" cy="18" rx="5.3" ry="2" fill="#0c302f"/></g>}
 

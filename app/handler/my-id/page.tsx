@@ -2,11 +2,11 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { hasSupabaseConfig } from '@/lib/supabase/config';
-import LanyardScene from './lanyard-scene';
+import HandlerProfileWorkspace from '@/components/handler-profile-workspace';
 
 export const metadata = {
-  title: 'My Digital ID · EventOps',
-  description: 'Your EventOps handler identity credential.',
+  title: 'My Profile · EventOps',
+  description: 'Manage your personal details and view your EventOps staff identity.',
 };
 
 export default async function MyIdPage() {
@@ -16,14 +16,11 @@ export default async function MyIdPage() {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect('/handler/login');
 
-  // This is the same self-scoped profile query used by the existing handler
-  // workspace, with only the additional verification state required by the ID.
-  // Keep the core profile read aligned with the existing handler workspace.
-  // Verification metadata is read separately so a missing/out-of-date optional
-  // column cannot prevent the authenticated handler's identity card rendering.
+  // This is the self-scoped profile query with explicit home_city_id foreign key
+  // to avoid PGRST201 ambiguous relationship errors.
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('id,role,full_name,email,job_title,team,handler_id,status,joined_at,photo_path,home_city_id,cities!profiles_home_city_id_fkey(name)')
+    .select('id,role,full_name,email,phone,job_title,team,handler_id,status,joined_at,photo_path,home_city_id,cities!profiles_home_city_id_fkey(name)')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -34,7 +31,7 @@ export default async function MyIdPage() {
       details: profileError.details ?? null,
       hint: profileError.hint ?? null,
     });
-    return <Unavailable title="Your ID could not be loaded" message="We could not retrieve your handler profile. Your access has not changed. Try again, or contact your administrator if this continues." />;
+    return <Unavailable title="Your Profile could not be loaded" message="We could not retrieve your handler profile. Your access has not changed. Try again, or contact your administrator if this continues." />;
   }
   if (!profile) {
     // Middleware routes authenticated users without a handler profile to
@@ -45,11 +42,16 @@ export default async function MyIdPage() {
   if (profile.status !== 'active') redirect('/handler/login?error=inactive');
   if (!profile.handler_id) redirect('/handler/onboarding');
 
-  const { data: verification, error: verificationError } = await supabase
-    .from('profiles')
-    .select('verification_status')
-    .eq('id', user.id)
-    .maybeSingle();
+  const [
+    { data: verification, error: verificationError },
+    { data: digitalId, error: digitalIdError },
+    { data: citiesData }
+  ] = await Promise.all([
+    supabase.from('profiles').select('verification_status').eq('id', user.id).maybeSingle(),
+    supabase.from('digital_ids').select('verification_token,valid_until,created_at').eq('profile_id', user.id).maybeSingle(),
+    supabase.from('cities').select('id,name,code').eq('active', true).order('name')
+  ]);
+
   if (verificationError) {
     console.error('[handler-my-id] Verification status query failed', {
       code: verificationError.code ?? null,
@@ -91,12 +93,6 @@ export default async function MyIdPage() {
     }
   }
 
-  const { data: digitalId, error: digitalIdError } = await supabase
-    .from('digital_ids')
-    .select('verification_token,valid_until,created_at')
-    .eq('profile_id', user.id)
-    .maybeSingle();
-
   if (digitalIdError) {
     console.error('[handler-my-id] Digital ID record query failed', {
       code: digitalIdError.code ?? null,
@@ -107,9 +103,14 @@ export default async function MyIdPage() {
   }
 
   return (
-    <LanyardScene
-      profile={{ ...profile, verification_status: verificationStatus, cities: Array.isArray(profile.cities) ? profile.cities[0] ?? null : profile.cities }}
+    <HandlerProfileWorkspace
+      profile={{
+        ...profile,
+        verification_status: verificationStatus,
+        cities: Array.isArray(profile.cities) ? profile.cities[0] ?? null : profile.cities,
+      }}
       record={digitalId ?? null}
+      cities={citiesData ?? []}
       origin={process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || ''}
       photoDataUrl={photoDataUrl}
       photoUnavailable={photoUnavailable}
@@ -123,7 +124,7 @@ function Unavailable({ title, message, onboarding = false }: { title: string; me
   return (
     <main className="my-id-unavailable">
       <div className="my-id-unavailable-panel" role="alert">
-        <span className="my-id-eyebrow">EVENTOPS · HANDLER IDENTITY</span>
+        <span className="my-id-eyebrow">EVENTOPS · HANDLER PROFILE</span>
         <h1>{title}</h1>
         <p>{message}</p>
         <Link className="my-id-button my-id-button-primary" href={onboarding ? '/handler/onboarding' : '/handler/my-id'}>
