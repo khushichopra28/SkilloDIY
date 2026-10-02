@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Eye, EyeOff, LoaderCircle, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { hasSupabaseConfig } from '@/lib/supabase/config';
+import EventOpsLogo from '@/components/eventops-logo';
 
 type Portal = 'admin' | 'handler';
 type BusyState = '' | 'password' | 'google';
@@ -167,7 +168,7 @@ export default function AuthForm({ kind }: { kind: Portal }) {
   return (
     <main className="auth-page">
       <section className="auth-brand">
-        <Link href="/" className="entry-brand"><span className="entry-mark">S</span><span>SKILLO</span></Link>
+        <EventOpsLogo size="auth" href="/" priority />
         <div className="auth-brand-copy">
           <div className="eyebrow">EVENT OPERATIONS</div>
           <h1>{isAdmin ? 'Every moving part,' : 'Your next event,'}<br />{isAdmin ? 'in good hands.' : 'all in one place.'}</h1>

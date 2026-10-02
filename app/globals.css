@@ -778,3 +778,40 @@ body{background:var(--canvas);color:var(--ink)}
     animation: none !important;
   }
 }
+
+/* Official EventOps / Skillo Logo integration */
+.eventops-logo-link,
+.eventops-logo-container {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  text-decoration: none;
+  background: transparent;
+}
+.eventops-logo-link {
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+.eventops-logo-link:hover {
+  opacity: 0.92;
+}
+.eventops-logo-link:focus-visible {
+  outline: 2px solid #287c7a;
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+.eventops-logo-img {
+  object-fit: contain;
+  max-width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.portal-sidebar .portal-logo {
+  padding: 0 8px 18px;
+  display: flex;
+  align-items: center;
+}
+.onboarding-brand {
+  gap: 12px;
+}

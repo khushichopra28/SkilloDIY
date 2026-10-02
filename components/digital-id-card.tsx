@@ -3,6 +3,7 @@
 import { useEffect, useState, type RefObject } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { createClient } from '@/lib/supabase/client';
+import EventOpsLogo from '@/components/eventops-logo';
 
 export type IdCardStatus = 'pending' | 'verified' | 'resubmission_required' | 'rejected' | 'suspended' | 'unavailable';
 type Row = Record<string, any>;
@@ -154,8 +155,7 @@ export default function DigitalIdCard({ profile, record, origin = '', photoDataU
             <path d="M6 34Q6 6 34 6h362q28 0 28 28v116H6z" fill="url(#id-top)"/>
             <path d="M6 6h418v146H6z" fill="url(#id-weave)" opacity=".5"/>
             <path d="M6 137h418v8H6z" fill="#147b79" opacity=".75"/>
-            <rect x="34" y="36" width="44" height="44" rx="12" fill="#123e3d"/>
-            <text x="56" y="67" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="27" fontWeight="800" fill="#b8e5e2">E</text>
+            <EventOpsLogo asSvg x={22} y={22} width={64} height={72} alt="Skillo DIY Crafts" />
             <text x="91" y="52" fontFamily="Arial,sans-serif" fontSize="23" fontWeight="800" letterSpacing="2.2" fill="#123e3d">EVENTOPS</text>
             <text x="92" y="72" fontFamily="Arial,sans-serif" fontSize="9.5" fontWeight="700" letterSpacing="2.3" fill="#467472">EVENT WORKFORCE</text>
             <text x="36" y="111" fontFamily="Arial,sans-serif" fontSize="10" fontWeight="700" letterSpacing="2.3" fill="#397471">STAFF IDENTITY CREDENTIAL</text>
@@ -198,7 +198,9 @@ export default function DigitalIdCard({ profile, record, origin = '', photoDataU
         <svg className="digital-id-card digital-id-card-back" viewBox="0 0 430 680" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
           <defs><linearGradient id="back-band" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#1a5c5a"/><stop offset="1" stopColor="#0b302f"/></linearGradient><linearGradient id="back-metal"><stop stopColor="#fff"/><stop offset=".5" stopColor="#8ea4a3"/><stop offset="1" stopColor="#e8f0ef"/></linearGradient></defs>
           <rect x="6" y="6" width="418" height="668" rx="28" fill="#f6fbfa"/><path d="M6 34Q6 6 34 6h362q28 0 28 28v108H6z" fill="#dcefed"/><rect x="6.5" y="6.5" width="417" height="667" rx="28" fill="none" stroke="url(#back-metal)" strokeWidth="3"/>
-          <text x="215" y="71" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="24" fontWeight="800" letterSpacing="2" fill="#123e3d">EVENTOPS</text><text x="215" y="96" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="9" fontWeight="700" letterSpacing="2" fill="#547a78">STAFF IDENTITY CREDENTIAL</text>
+          <EventOpsLogo asSvg x={181} y={14} width={68} height={52} alt="Skillo DIY Crafts" />
+          <text x="215" y="78" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="24" fontWeight="800" letterSpacing="2" fill="#123e3d">EVENTOPS</text>
+          <text x="215" y="98" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="9" fontWeight="700" letterSpacing="2" fill="#547a78">STAFF IDENTITY CREDENTIAL</text>
           {verificationUrl ? <g transform="translate(115 174)"><rect width="200" height="200" rx="14" fill="#fff" stroke="#cfdfdd"/><g transform="translate(22 22)"><QRCodeSVG value={verificationUrl} size={156} level="H" bgColor="#ffffff" fgColor="#123e3d"/></g></g> : <g><rect x="115" y="174" width="200" height="200" rx="14" fill="#eef5f4" stroke="#d3e1df"/><text x="215" y="272" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="12" fontWeight="700" fill="#587573">VERIFICATION LINK</text><text x="215" y="294" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="12" fontWeight="700" fill="#587573">UNAVAILABLE</text></g>}
           <text x="215" y="410" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="11" fontWeight="800" letterSpacing="2" fill="#123e3d">VERIFY HANDLER STATUS</text><text x="215" y="435" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="10" fill="#6c8583">Scan the secure QR code to confirm current status.</text>
           <path d="M49 476h332" stroke="#d8e5e3"/><text x="215" y="514" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="10" fontWeight="700" letterSpacing="1.2" fill="#708886">HANDLER ID</text><text x="215" y="550" textAnchor="middle" fontFamily="Courier New,monospace" fontSize="20" fontWeight="700" fill="#163f3e">{idText}</text>

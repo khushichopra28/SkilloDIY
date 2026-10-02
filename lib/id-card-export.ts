@@ -44,6 +44,28 @@ async function waitForCardAssets(svg: SVGSVGElement) {
   }));
 }
 
+async function inlineSvgImages(svg: SVGSVGElement) {
+  const images = Array.from(svg.querySelectorAll('image'));
+  await Promise.all(images.map(async (img) => {
+    const href = img.getAttribute('href') || img.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+    if (!href || href.startsWith('data:')) return;
+    try {
+      const response = await fetch(href);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+      img.setAttribute('href', dataUrl);
+      img.removeAttributeNS('http://www.w3.org/1999/xlink', 'href');
+    } catch (e) {
+      console.warn('Could not inline SVG image for export:', href, e);
+    }
+  }));
+}
+
 async function renderCard(svg: SVGSVGElement) {
   await waitForCardAssets(svg);
   const clone = svg.cloneNode(true) as SVGSVGElement;
@@ -52,6 +74,7 @@ async function renderCard(svg: SVGSVGElement) {
   clone.setAttribute('height', String(CARD_HEIGHT));
   clone.removeAttribute('class');
   clone.style.background = '#f6fbfa';
+  await inlineSvgImages(clone);
 
   const markup = new XMLSerializer().serializeToString(clone);
   const source = URL.createObjectURL(new Blob([markup], { type: 'image/svg+xml;charset=utf-8' }));
