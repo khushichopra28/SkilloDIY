@@ -19,7 +19,7 @@ Next.js server                         Supabase
 
 - **Frontend:** Next.js App Router, React, TypeScript, Lucide icons, and the Skillo aqua/white design system. Admin navigation is desktop-first; handler operations are mobile-first.
 - **Backend:** Next.js server components, route handlers, middleware and service functions, plus Supabase Auth, PostgreSQL functions/RLS, and Storage policies.
-- **Identity:** Supabase Auth supplies the session. The matching `profiles` row is the authority for role and active state. Roles are lowercase `super_admin`, `city_admin`, and `handler`; public signup is disabled.
+- **Identity:** Supabase Auth supplies the session. Admin profiles are provisioned by administrators. Handler self-registration creates a unique `handler_applications` record keyed by the Auth UUID; only authorized verification approval creates an active, verified handler `profiles` row. Roles are lowercase `super_admin`, `city_admin`, and `handler`.
 - **Data tenancy:** Organizations contain cities. City admins operate within assigned cities. Handlers are represented by profiles and can see assigned event data under RLS.
 - **Privacy:** Attendance evidence, receipts, and documents are kept in private Storage buckets. Attendance uses camera capture and a database RPC records authoritative timestamps. Location is requested only for attendance verification.
 - **Deployment:** Next.js deploys to Vercel; Supabase provides hosted Auth, PostgreSQL, and Storage. Service-role access is server-only.
@@ -33,6 +33,8 @@ app/
   page.tsx                        Skillo entry/landing page
   admin/                           Admin portal route pages and layouts
   handler/                         Handler portal route pages and layouts
+    signup/                         Email/password and Google account creation
+    onboarding/                     Resumable profile, private identity and consent workflow
   login/                           Legacy/general login entry route
   forgot-password/                 Password recovery page
   update-password/                 Set a password from a recovery session
@@ -40,6 +42,9 @@ app/
 
 components/
   auth-form.tsx                    Email/password and Google sign-in interaction
+  handler-signup-form.tsx          Handler Auth signup
+  handler-onboarding.tsx           Resumable handler application UI
+  handler-application-review.tsx   Authorized reviewer decision controls
   forgot-password.tsx              Recovery form interaction
   portal-shell.tsx                 Role-aware navigation and portal chrome
   event-create-form.tsx            Event creation interaction
@@ -58,7 +63,8 @@ The `app/` tree also contains server-rendered pages that load authorized data. I
 ```text
 app/
   api/admin/handlers/route.ts       Authenticated admin handler invitation endpoint
-  auth/callback/route.ts            OAuth and recovery code exchange; profile/role check
+  admin/handler-applications/**     RLS-scoped identity review queue and detail
+  auth/callback/route.ts            OAuth/recovery exchange and handler onboarding resume
   admin/**/page.tsx                 Server-rendered admin reads and server actions
   handler/**/page.tsx               Server-rendered handler reads
 
@@ -77,10 +83,11 @@ Backend trust rules:
 
 1. Obtain the authenticated user from Supabase Auth; never trust a role supplied by the browser.
 2. Resolve `profiles` using the Auth user UUID. Require the expected role and `status='active'` before entering a portal.
-3. Use RLS as the database authorization boundary. Middleware redirects improve navigation but do not replace RLS.
-4. Use guarded database RPCs for sensitive workflow changes such as attendance, task completion, and expense review. Database time is authoritative for attendance.
-5. Use the service-role key only in `lib/supabase/admin.ts` and trusted server code. Never expose it through a `NEXT_PUBLIC_` variable or client bundle.
-6. Store files privately and grant access through the Storage policies defined in the migrations.
+3. An authenticated user without a handler profile can access only their RLS-scoped application and onboarding routes. The database approval RPC is the only self-registration path that creates an active handler profile.
+4. Use RLS as the database authorization boundary. Middleware redirects improve navigation but do not replace RLS.
+5. Use guarded database RPCs for sensitive workflow changes such as identity review, attendance, task completion, and expense review. Database time is authoritative for review and attendance.
+6. Use the service-role key only in `lib/supabase/admin.ts` and trusted server code. Never expose it through a `NEXT_PUBLIC_` variable or client bundle.
+7. Store files privately. Government IDs use the separate `identity-documents` bucket, readable only by the owner and authorized verifiers.
 
 ## Shared contracts and configuration
 
@@ -98,6 +105,8 @@ lib/supabase/config.ts              Public project URL/key resolution
 /                              Skillo entry page
 /admin/login                  Admin sign in
 /handler/login                Handler sign in
+/handler/signup               Email/password and Google registration
+/handler/onboarding           Resumable handler application
 /forgot-password              Recovery email request
 /update-password              Password reset completion
 /admin                        Operations dashboard
@@ -107,6 +116,8 @@ lib/supabase/config.ts              Public project URL/key resolution
 /admin/events/[eventId]       Assignment, checklist and event workspace
 /admin/handlers               Handler directory
 /admin/handlers/new           Admin-created handler invitation
+/admin/handler-applications   Verification queue for authorized reviewers
+/admin/handler-applications/[applicationId] Restricted profile and identity document review
 /admin/cities                 City workspaces
 /admin/live-events            Live event health
 /admin/attendance             Attendance register
@@ -137,24 +148,29 @@ lib/supabase/config.ts              Public project URL/key resolution
 - `0001_eventops.sql` creates the organization/profile/event core, attendance, checklists, expenses, notifications, digital IDs, event timeline, `audit_log`, RLS, private Storage buckets, and workflow RPCs.
 - `0002_skillo_cities.sql` adds `super_admin`/`city_admin` roles, cities, clients, activities, venues, inventory, reimbursements, checklist templates, city-aware IDs and RLS, and expense review/submission workflows.
 - `0003_public_id_verification.sql` adds limited public QR verification and tightens attendance/checklist/review workflows.
+- `0004_fix_rls_recursion.sql` resolves profile-policy recursion.
+- `0005_event_creation_workflow.sql` adds client-name and handler-arrival support.
+- `0006_handler_self_onboarding.sql` adds Auth-linked handler applications, identity verification, restricted storage, approval audit, and global future Handler ID generation. Existing handler profiles receive `verification_status='VERIFIED'` by migration default and keep their existing ID.
 
 The schema intentionally stores handlers in `profiles` with role `handler`; it has no `public.handlers` table. Audit records are in `public.audit_log` (singular). Activation is `profiles.status='active'`, and role literals are lowercase.
 
 Key workflow:
 
 1. An administrator creates an event; database functions allocate its city event code and seed checklist items.
-2. An administrator invites handlers and assigns them. RLS exposes assigned events to each handler.
-3. During an active event, a handler captures attendance evidence. A guarded RPC validates the signed-in user, assignment, event and private photo before recording server time and timeline activity.
-4. Handlers complete authorized checklist tasks and submit expenses with private receipt evidence.
-5. Authorized admins review expenses. Database functions and triggers maintain reimbursement state, notifications, timeline and audit entries.
+2. A handler creates an Auth account and resumes one application keyed by that Auth UUID. Profile details and government ID remain in RLS-protected application tables until review; identity files use a separate private bucket.
+3. A super admin or city admin with `can_verify_handlers` and access to the applicant's city reviews the application. The decision RPC writes an audit record. Approval creates an active verified profile; existing triggers create the global `SKL-00001`-style Handler ID and digital ID.
+4. An administrator assigns only active, verified handler profiles. Database guards also prevent pending users from receiving new assignments.
+5. During an active event, a handler captures attendance evidence. A guarded RPC validates verified active status, assignment, event and private photo before recording server time and timeline activity.
+6. Handlers complete authorized checklist tasks and submit expenses with private receipt evidence.
+7. Authorized admins review expenses. Database functions and triggers maintain reimbursement state, notifications, timeline and audit entries.
 
 ## Local development and verification
 
 1. Install packages with `npm install`.
 2. Copy `.env.example` to `.env.local` and set the Supabase URL, publishable key and local app URL.
-3. Apply `supabase/migrations/0001_eventops.sql`, `0002_skillo_cities.sql`, and `0003_public_id_verification.sql` in order. The current setup procedure is documented in `SUPABASE_SETUP.md`.
+3. Apply `supabase/migrations/0001_eventops.sql` through `0006_handler_self_onboarding.sql` in order. The current setup procedure is documented in `SUPABASE_SETUP.md`.
 4. Start one Next.js process for this checkout with `npm run dev` and open `http://localhost:3000`.
-5. Verify the landing and sign-in routes load their CSS, then test sign-in using an Auth user linked to an active `profiles` row.
+5. Enable email signup, configure OAuth, and test applicant registration, resumability, protected review, and approval against the configured Supabase project.
 
 Build success confirms source compilation, not remote RLS or Auth behavior. Camera permissions, actual invitation delivery, and database workflow behavior must be verified against a configured Supabase project.
 

@@ -53,10 +53,15 @@ export async function GET(request: Request) {
 
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('role,status,handler_id')
+    .select('role,status,handler_id,verification_status')
     .eq('id', user.id)
     .maybeSingle();
   if (profileError || !profile) {
+    if (!profileError && !requested.startsWith('/admin')) {
+      const { error: onboardingError } = await supabase.rpc('ensure_handler_application');
+      if (!onboardingError) return NextResponse.redirect(new URL('/handler/onboarding', url.origin));
+      return NextResponse.redirect(new URL('/handler/onboarding?error=setup', url.origin));
+    }
     await supabase.auth.signOut();
     const target = new URL(loginFor(requested), url.origin);
     target.searchParams.set('error', profileError ? 'profile_lookup' : 'unlinked');
@@ -69,12 +74,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(target);
   }
   if (profile.role === 'handler') {
-    if (!profile.handler_id) {
-      await supabase.auth.signOut();
-      const target = new URL('/handler/login', url.origin);
-      target.searchParams.set('error', 'unlinked');
-      return NextResponse.redirect(target);
-    }
+    if (!profile.handler_id || profile.verification_status !== 'VERIFIED') return NextResponse.redirect(new URL('/handler/onboarding', url.origin));
     return NextResponse.redirect(new URL('/handler', url.origin));
   }
   if (profile.role === 'super_admin' || profile.role === 'city_admin') {

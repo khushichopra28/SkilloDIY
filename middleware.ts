@@ -16,12 +16,15 @@ export async function middleware(request: NextRequest) {
   const isHandlerArea = path === '/handler' || path.startsWith('/handler/');
   const isAdminLogin = path === '/admin/login';
   const isHandlerLogin = path === '/handler/login';
+  const isHandlerSignup = path === '/handler/signup';
+  const isHandlerOnboarding = path === '/handler/onboarding';
+  const isHandlerMyId = path === '/handler/my-id';
   const { url, key } = getSupabaseConfig();
 
   // Never serve a protected workspace when its identity service is unconfigured.
   if (!url || !key) {
     if (isAdminArea && !isAdminLogin && !path.startsWith('/api/')) return goTo(request, '/admin/login', 'configuration');
-    if (isHandlerArea && !isHandlerLogin) return goTo(request, '/handler/login', 'configuration');
+    if (isHandlerArea && !isHandlerLogin && !isHandlerSignup) return goTo(request, '/handler/login', 'configuration');
     return NextResponse.next();
   }
 
@@ -40,34 +43,68 @@ export async function middleware(request: NextRequest) {
 
   if (!user) {
     if (isAdminArea && !isAdminLogin && !path.startsWith('/api/')) return goTo(request, '/admin/login');
-    if (isHandlerArea && !isHandlerLogin) return goTo(request, '/handler/login');
+    if (isHandlerArea && !isHandlerLogin && !isHandlerSignup) {
+      return goTo(request, '/handler/login');
+    }
     return response;
   }
 
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('role,status,handler_id')
+    .select('role,status,handler_id,verification_status')
     .eq('id', user.id)
     .maybeSingle();
+
+  // The ID page performs its own authenticated, self-scoped profile lookup and
+  // renders a retry/missing-profile state. Avoid routing a transient lookup
+  // failure through onboarding, whose independent profile read can redirect
+  // back to /handler. The page still enforces handler role and active status.
+  if (isHandlerMyId && (profileError || !profile)) return response;
+
   if (profileError || !profile) {
+    if (!profileError && !isAdminArea && !isAdminLogin) {
+      if (isHandlerOnboarding) return response;
+      if (isHandlerSignup || isHandlerLogin) return goTo(request, '/handler/onboarding');
+      if (isHandlerArea) return goTo(request, '/handler/onboarding');
+      return response;
+    }
     await supabase.auth.signOut();
     if (isAdminArea) return goTo(request, '/admin/login', profileError ? 'profile_lookup' : 'unlinked');
     if (isHandlerArea) return goTo(request, '/handler/login', profileError ? 'profile_lookup' : 'unlinked');
     return goTo(request, '/handler/login', profileError ? 'profile_lookup' : 'unlinked');
   }
+
   if (profile.status !== 'active') {
     await supabase.auth.signOut();
     return goTo(request, profile.role === 'handler' ? '/handler/login' : '/admin/login', 'inactive');
   }
+
   if (profile.role === 'handler' && !profile.handler_id) {
-    await supabase.auth.signOut();
-    return goTo(request, '/handler/login', 'unlinked');
+    if (isHandlerOnboarding) return response;
+    return goTo(request, '/handler/onboarding');
   }
 
   const isAdmin = profile.role === 'super_admin' || profile.role === 'city_admin';
-  if (isAdminArea && !isAdmin) return goTo(request, '/handler');
-  if (isHandlerArea && profile.role !== 'handler') return goTo(request, '/admin');
-  if (isHandlerLogin && profile.role === 'handler') return goTo(request, '/handler');
+  if (isAdminArea && !isAdmin) {
+    return goTo(request, '/handler');
+  }
+  if (isHandlerArea && profile.role !== 'handler') {
+    return goTo(request, '/admin');
+  }
+
+  if (profile.role === 'handler' && profile.verification_status !== 'VERIFIED') {
+    if (isHandlerOnboarding || isHandlerMyId) {
+      return response;
+    }
+    if (isHandlerArea) return goTo(request, '/handler/onboarding');
+  }
+
+  if (isHandlerSignup && profile.role === 'handler') {
+    return goTo(request, '/handler');
+  }
+  if (isHandlerLogin && profile.role === 'handler') {
+    return goTo(request, '/handler');
+  }
   if (isAdminLogin && isAdmin) return goTo(request, '/admin');
 
   return response;

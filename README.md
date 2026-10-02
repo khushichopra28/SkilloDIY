@@ -16,17 +16,17 @@ Skillo EventOps is an internal workforce and event operations platform for plann
 4. To provision handler invitations from the app, set `SUPABASE_SERVICE_ROLE_KEY` in the local server environment only. It is never exposed to browser code. For a staging demo only, set a strong `DEMO_PASSWORD` and run `npm run seed`.
 5. Run `npm run dev` and open `http://localhost:3000`.
 
-The entry page links to `/admin/login` and `/handler/login`. There is no public registration. Access requires an active `profiles` row linked to the authenticated Supabase user. Do not run the demo seeder against production.
+The entry page links to `/admin/login` and `/handler/login`. Handlers can register at `/handler/signup` and continue through a resumable application. Registration alone does not grant handler access: an authorized administrator must verify the application before an active handler `profiles` row is created. Do not run the demo seeder against production.
 
 ## Authentication and authorization
 
-`profiles.role` is one of `super_admin`, `city_admin`, or `handler`. The profile row—not browser-supplied data—is authoritative for role and active status. Middleware protects the portal routes, and PostgreSQL RLS is the data authorization boundary. Handlers can access their own profile and data reachable through event assignments. Administrators are organization- or city-scoped. Supabase signup is disabled for this managed-account workflow.
+`profiles.role` is one of `super_admin`, `city_admin`, or `handler`. The profile row—not browser-supplied data—is authoritative for role, active status, and verification status. Middleware protects the portal routes, and PostgreSQL RLS is the data authorization boundary. Handlers can access their own profile and data reachable through event assignments. Administrators are organization- or city-scoped. Email signup must be enabled in Supabase. New users are stored in `handler_applications`; approval alone creates their active, verified handler profile.
 
-Password recovery uses Supabase Auth email recovery and the existing `/auth/callback`. Google OAuth uses that same callback; it does not provision users. The Google provider must be enabled and configured in Supabase and Google Cloud. Follow [SUPABASE_SETUP.md](./SUPABASE_SETUP.md).
+Password recovery and both handler signup methods use the existing `/auth/callback`. Email/password and Google authentication enter the same onboarding flow. Existing Auth users resume the one application associated with their Auth UUID; duplicate profiles are not created. Google OAuth must be enabled and configured in Supabase and Google Cloud. Follow [SUPABASE_SETUP.md](./SUPABASE_SETUP.md).
 
 ## Operations and privacy
 
-Attendance uses `getUserMedia` camera capture, not a gallery picker. A database RPC records the authoritative timestamp after validating the authenticated handler, event assignment, active event, and private uploaded photo. Location is requested only for attendance verification. Receipts and attendance photos use private Storage buckets with access policies. The digital ID QR verification function returns only the limited identity fields required for verification.
+Attendance uses `getUserMedia` camera capture, not a gallery picker. A database RPC records the authoritative timestamp after validating the authenticated, active, verified handler, event assignment, active event, and private uploaded photo. Location is requested only for attendance verification. Government identity documents use the separate private `identity-documents` bucket and are available only to the applicant and authorized verification reviewers. Receipts and attendance photos retain their existing private Storage policies. The digital ID QR verification function returns only the limited identity fields required for verification.
 
 ## Deployment
 
@@ -39,9 +39,11 @@ Apply all migrations and complete the administrator bootstrap before deploying. 
 - `lib/supabase/`: browser, request-scoped server, and server-only admin clients.
 - `middleware.ts`: Supabase session refresh and role-based portal routing.
 - `supabase/migrations/`: versioned schema, RLS, Storage policies, and database workflows.
+- `app/handler/signup` and `app/handler/onboarding`: self-service account registration and resumable application steps.
+- `app/admin/handler-applications`: restricted identity verification queue and decision workflow.
 - `scripts/seed.ts`: demo organization and sample event data for non-production environments.
 - `ARCHITECTURE.md`: route structure, authorization model, and implementation status.
 
 ## Verification status
 
-`npm run build` checks production compilation. The local environment is configured with a Supabase project URL and publishable key. A read-only Auth check confirmed the project is reachable and email authentication is enabled; Google is currently disabled. The live REST check found that `public.profiles` is not present in the project schema cache, so database-backed login and portal workflows cannot succeed until the migrations are applied. See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for the exact status and setup steps. No credentials or service-role key are included in the repository.
+`npm run build` checks production compilation. Apply migrations through `0006_handler_self_onboarding.sql`, enable email signups, configure Google OAuth, and ensure exactly one organization is configured for public self-registration. Super admins can review applications; city admins need the `can_verify_handlers` permission as well as access to the applicant's city. See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for setup. No credentials or service-role key are included in the repository.

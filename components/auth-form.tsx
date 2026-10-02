@@ -9,7 +9,7 @@ import { hasSupabaseConfig } from '@/lib/supabase/config';
 
 type Portal = 'admin' | 'handler';
 type BusyState = '' | 'password' | 'google';
-type Profile = { role: 'super_admin' | 'city_admin' | 'handler'; status: string; handler_id: string | null };
+type Profile = { role: 'super_admin' | 'city_admin' | 'handler'; status: string; handler_id: string | null; verification_status?: string };
 
 const configured = hasSupabaseConfig();
 
@@ -51,7 +51,7 @@ export default function AuthForm({ kind }: { kind: Portal }) {
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('role,status,handler_id')
+      .select('role,status,handler_id,verification_status')
       .eq('id', user.id)
       .maybeSingle<Profile>();
 
@@ -61,10 +61,18 @@ export default function AuthForm({ kind }: { kind: Portal }) {
       return;
     }
     if (!profile) {
+      if (!isAdmin) {
+        const { error: onboardingError } = await supabase.rpc('ensure_handler_application');
+        if (onboardingError) {
+          setError('Your account is signed in, but onboarding could not be started. Please try again or contact your Skillo administrator.');
+          return;
+        }
+        router.replace('/handler/onboarding');
+        router.refresh();
+        return;
+      }
       await supabase.auth.signOut();
-      setError(isAdmin
-        ? 'Your account is signed in, but no administrator profile is linked to it. Please contact your administrator.'
-        : 'Your account is signed in, but no handler profile is linked to it. Please contact your administrator.');
+      setError('Your account is signed in, but no administrator profile is linked to it. Please contact your administrator.');
       return;
     }
     if (profile.status !== 'active') {
@@ -79,6 +87,11 @@ export default function AuthForm({ kind }: { kind: Portal }) {
     }
 
     if (profile.role === 'handler') {
+      if (profile.verification_status && profile.verification_status !== 'VERIFIED') {
+        router.replace('/handler/onboarding');
+        router.refresh();
+        return;
+      }
       router.replace('/handler');
     } else if (profile.role === 'super_admin' || profile.role === 'city_admin') {
       router.replace('/admin');
@@ -185,7 +198,7 @@ export default function AuthForm({ kind }: { kind: Portal }) {
             <button type="button" className="google-submit" onClick={continueWithGoogle} disabled={!!busy}>
               {busy === 'google' ? <><LoaderCircle size={15} className="auth-spinner" />Connecting to Google...</> : <><GoogleMark />Continue with Google</>}
             </button>
-            <p className="auth-footnote handler-contact">Don’t have an account?<br /><b>Contact your Skillo administrator.</b><span>Handlers are created and managed by administrators.</span></p>
+            <p className="auth-footnote handler-contact">New to EventOps? <Link href="/handler/signup"><b>Create a handler account</b></Link><span>New handlers complete an application and verification before activation.</span></p>
           </>}
           {isAdmin && <p className="auth-footnote">Administrator access is managed by your organization.</p>}
         </form>
