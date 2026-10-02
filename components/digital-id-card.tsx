@@ -116,7 +116,19 @@ export default function DigitalIdCard({ profile, record, origin = '', photoDataU
 
   return (
     <div className={`acrylic-id-wrap ${status === 'suspended' ? 'is-suspended' : ''}`}>
-      <div className={`digital-id-card-3d-wrapper ${flipped ? 'is-flipped' : ''}`}>
+      <div
+        className={`digital-id-card-3d-wrapper ${flipped ? 'is-flipped' : ''}`}
+        onClick={toggleFlip}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleFlip();
+          }
+        }}
+        tabIndex={0}
+        role="button"
+        aria-label={flipped ? 'Show front of digital ID card' : 'Turn digital ID card over'}
+      >
         <svg
           ref={frontRef}
           className="digital-id-card digital-id-card-front"
