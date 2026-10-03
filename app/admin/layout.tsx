@@ -1,20 +1,28 @@
+import { headers } from 'next/headers';
 import PortalShell from '@/components/portal-shell';
-import { hasSupabaseConfig } from '@/lib/supabase/config';
-import { getCachedUserProfile } from '@/lib/supabase/cached-auth';
+
+function decodeHeaderValue(value: string | null, fallback: string) {
+  if (!value) return fallback;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return fallback;
+  }
+}
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  if (!hasSupabaseConfig()) return <PortalShell role="admin" name="Administrator" cityName={null}>{children}</PortalShell>;
+  const requestHeaders = await headers();
+  const identityVerified = requestHeaders.get('x-eventops-identity-verified') === '1';
+  const role = requestHeaders.get('x-eventops-profile-role');
 
-  const profile = await getCachedUserProfile();
-  let role: 'admin' | 'handler' | null = 'admin';
-  let name = 'Administrator';
-  let cityName: string | null = null;
-
-  if (profile) {
-    role = profile.role === 'super_admin' || profile.role === 'city_admin' ? 'admin' : profile.role === 'handler' ? 'handler' : 'admin';
-    name = profile.full_name || name;
-    cityName = profile.cityName;
+  // The middleware is the authentication boundary for /admin. It forwards
+  // identity only after validating the Supabase session and active admin role.
+  // Admin login and configuration/error redirects arrive without this claim.
+  if (!identityVerified || (role !== 'super_admin' && role !== 'city_admin')) {
+    return <PortalShell role={null} name="Administrator" cityName={null}>{children}</PortalShell>;
   }
 
-  return <PortalShell role={role} name={name} cityName={cityName}>{children}</PortalShell>;
+  const name = decodeHeaderValue(requestHeaders.get('x-eventops-profile-name'), 'Administrator');
+  const cityName = decodeHeaderValue(requestHeaders.get('x-eventops-city-name'), 'All cities');
+  return <PortalShell role="admin" name={name} cityName={cityName}>{children}</PortalShell>;
 }

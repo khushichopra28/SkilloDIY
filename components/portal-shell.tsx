@@ -18,7 +18,7 @@ const adminLinks = [
   ['Events', '/admin/events', BriefcaseBusiness],
   ['Handler Management', '/admin/handlers', Users],
   ['Pending Verifications', '/admin/handler-applications', UserRoundCheck],
-  ['City Selection', '/admin/cities', MapPin],
+  ['Cities / Locations', '/admin/cities', MapPin],
   ['Expenses & Reimbursements', '/admin/expenses', Coins],
   ['Notifications', '/admin/notifications', Bell],
   ['Audit Log', '/admin/audit-log', FileText],
@@ -79,7 +79,7 @@ export default function PortalShell({
             const active = href === '/admin' || href === '/handler'
               ? pathname === href
               : pathname === href || pathname.startsWith(`${href}/`);
-            return <Link className={`portal-nav-link ${active ? 'active' : ''}`} href={href} key={href} onClick={() => setAdminSidebarOpen(false)}>
+            return <Link className={`portal-nav-link ${active ? 'active' : ''}`} href={href} key={href} prefetch={admin ? undefined : false} onClick={() => setAdminSidebarOpen(false)}>
               <Icon size={17} strokeWidth={1.8}/><span>{label}</span>
             </Link>;
           })}
@@ -100,7 +100,7 @@ export default function PortalShell({
         {children}
       </div>
       {!admin && <nav className="handler-bottom-nav" aria-label="Handler quick navigation">
-        {mobileLinks.map(([label, href, Icon]) => <Link key={href} href={href} className={pathname === href || pathname.startsWith(`${href}/`) ? 'active' : ''}>
+        {mobileLinks.map(([label, href, Icon]) => <Link key={href} href={href} prefetch={false} className={pathname === href || pathname.startsWith(`${href}/`) ? 'active' : ''}>
           <Icon size={18}/><small>{label === 'Checklist / Tasks' ? 'Tasks' : label === 'Notifications' && !admin ? 'Inbox' : label}</small>
         </Link>)}
       </nav>}

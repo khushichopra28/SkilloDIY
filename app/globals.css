@@ -1938,3 +1938,46 @@ body{background:var(--canvas);color:var(--ink)}
     width: 100%;
   }
 }
+
+/* Fast Navigation Loading Skeletons */
+@keyframes navShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Base shimmer used by skeleton-block and skeleton-pill */
+.skeleton-block,
+.skeleton-pill,
+.skeleton-circle {
+  background: linear-gradient(90deg, #f2f6f6 25%, #e8eeee 50%, #f2f6f6 75%);
+  background-size: 200% 100%;
+  animation: navShimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-block {
+  border-radius: 4px;
+  display: block;
+}
+
+.skeleton-pill {
+  border-radius: 9999px;
+  display: block;
+}
+
+.skeleton-circle {
+  border-radius: 50%;
+  display: block;
+}
+
+/* skeleton-btn: standalone shimmer for button-shaped placeholders */
+.skeleton-btn {
+  border-radius: 4px;
+  background: linear-gradient(90deg, #f2f6f6 25%, #e8eeee 50%, #f2f6f6 75%);
+  background-size: 200% 100%;
+  animation: navShimmer 1.4s ease-in-out infinite;
+  display: block;
+}

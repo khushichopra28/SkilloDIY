@@ -327,45 +327,47 @@ export function CitiesWorkspace() {
     setError('');
     const supabase = createClient();
     try {
-      const { data: citiesData, error: citiesErr } = await supabase
-        .from('cities')
-        .select('id,name,code,active,inventory_base,reimbursement_rules,local_contacts,city_admin_id')
-        .order('name');
+      const [citiesRes, eventsRes, handlersRes, attendanceRes, expensesRes, venuesRes] = await Promise.all([
+        supabase.from('cities').select('id,name,code,active,inventory_base,reimbursement_rules,local_contacts,city_admin_id').order('name'),
+        supabase.from('events').select('id,city_id,status,event_date'),
+        supabase.from('profiles').select('id,home_city_id').eq('role', 'handler').eq('status', 'active'),
+        supabase.from('attendance').select('id,events!inner(city_id,event_date)').eq('events.event_date', today).not('check_in_at', 'is', null),
+        supabase.from('expenses').select('amount,events!inner(city_id)').in('status', ['submitted', 'under_review']),
+        supabase.from('venues').select('id,city_id'),
+      ]);
 
-      if (citiesErr) throw citiesErr;
-      const list = citiesData ?? [];
+      if (citiesRes.error) throw citiesRes.error;
+      const list = citiesRes.data ?? [];
       setDbCities(list);
 
-      const statsEntries = await Promise.all(
-        list.map(async city => {
-          const [upcoming, active, completed, handlers, checked, expense, venues] = await Promise.all([
-            supabase.from('events').select('id', { count: 'exact', head: true }).eq('city_id', city.id).eq('status', 'upcoming'),
-            supabase.from('events').select('id', { count: 'exact', head: true }).eq('city_id', city.id).eq('status', 'active'),
-            supabase.from('events').select('id', { count: 'exact', head: true }).eq('city_id', city.id).eq('status', 'completed').gte('event_date', monthStart),
-            supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'handler').eq('home_city_id', city.id).eq('status', 'active'),
-            supabase.from('attendance').select('id,events!inner(city_id,event_date)', { count: 'exact', head: true }).eq('events.city_id', city.id).eq('events.event_date', today).not('check_in_at', 'is', null),
-            supabase.from('expenses').select('amount,events!inner(city_id)').eq('events.city_id', city.id).in('status', ['submitted', 'under_review']),
-            supabase.from('venues').select('id', { count: 'exact', head: true }).eq('city_id', city.id),
-          ]);
+      const eventsList = (eventsRes.data ?? []) as any[];
+      const handlersList = (handlersRes.data ?? []) as any[];
+      const attendanceList = (attendanceRes.data ?? []) as any[];
+      const expensesList = (expensesRes.data ?? []) as any[];
+      const venuesList = (venuesRes.data ?? []) as any[];
 
-          const pendingSum = (expense.data ?? []).reduce((acc: number, r: any) => acc + Number(r.amount || 0), 0);
+      const statsMap: Record<string, CityStats> = {};
+      for (const city of list) {
+        const cityEvents = eventsList.filter(e => e.city_id === city.id);
+        const upcomingCount = cityEvents.filter(e => e.status === 'upcoming').length;
+        const activeCount = cityEvents.filter(e => e.status === 'active').length;
+        const completedCount = cityEvents.filter(e => e.status === 'completed' && e.event_date >= monthStart).length;
+        const handlersCount = handlersList.filter(h => h.home_city_id === city.id).length;
+        const checkedTodayCount = attendanceList.filter(a => a.events?.city_id === city.id).length;
+        const pendingExpenseSum = expensesList.filter(x => x.events?.city_id === city.id).reduce((sum, x) => sum + Number(x.amount || 0), 0);
+        const venuesCount = venuesList.filter(v => v.city_id === city.id).length;
 
-          return [
-            city.id,
-            {
-              upcoming: upcoming.count ?? 0,
-              active: active.count ?? 0,
-              completed: completed.count ?? 0,
-              handlers: handlers.count ?? 0,
-              checkedToday: checked.count ?? 0,
-              pendingExpenseSum: pendingSum,
-              venues: venues.count ?? 0,
-            },
-          ] as const;
-        })
-      );
-
-      setCityStatsMap(Object.fromEntries(statsEntries));
+        statsMap[city.id] = {
+          upcoming: upcomingCount,
+          active: activeCount,
+          completed: completedCount,
+          handlers: handlersCount,
+          checkedToday: checkedTodayCount,
+          pendingExpenseSum,
+          venues: venuesCount,
+        };
+      }
+      setCityStatsMap(statsMap);
     } catch (err: any) {
       console.warn('Could not load all live city statistics:', err);
       setError('Live city records could not be loaded completely. Showing canonical hubs.');
