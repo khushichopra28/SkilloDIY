@@ -1,5 +1,109 @@
 'use client';
-import Link from 'next/link';import {usePathname,useRouter} from 'next/navigation';import {useState} from 'react';import {Activity,BarChart3,Bell,Boxes,Building2,CalendarDays,ClipboardCheck,Coins,FileText,LayoutDashboard,LogOut,MapPin,ShieldCheck,Users,Wallet,BriefcaseBusiness,UserRoundCheck,CreditCard} from 'lucide-react';import {createClient} from '@/lib/supabase/client';import AdminGlobalSearch from '@/components/admin-global-search';import EventOpsLogo from '@/components/eventops-logo';
-const adminLinks=[['Dashboard','/admin',LayoutDashboard],['Calendar','/admin/calendar',CalendarDays],['Events','/admin/events',BriefcaseBusiness],['Live Events','/admin/live-events',Activity],['Handlers','/admin/handlers',Users],['Handler Applications','/admin/handler-applications',UserRoundCheck],['Cities','/admin/cities',MapPin],['Attendance','/admin/attendance',ClipboardCheck],['Expenses','/admin/expenses',Coins],['Clients','/admin/clients',Users],['Venues','/admin/venues',Building2],['Inventory','/admin/inventory',Boxes],['Reports','/admin/reports',BarChart3],['Notifications','/admin/notifications',Bell],['Audit Log','/admin/audit-log',FileText],['Settings','/admin/settings',ShieldCheck]] as const;
-const handlerLinks=[['Home','/handler',LayoutDashboard],['My Events','/handler/events',CalendarDays],['Checklist / Tasks','/handler/checklist',ClipboardCheck],['Expenses','/handler/expenses',Wallet],['My Profile','/handler/my-id',CreditCard],['Notifications','/handler/notifications',Bell]] as const;
-export default function PortalShell({children,role,name,cityName}:{children:React.ReactNode;role:'admin'|'handler'|null;name:string;cityName:string|null}){const pathname=usePathname(),router=useRouter(),[busy,setBusy]=useState(false);if(pathname==='/admin/login'||pathname==='/handler/login'||!role)return <>{children}</>;const admin=role==='admin',links=admin?adminLinks:handlerLinks,mobileLinks=admin?[adminLinks[0],adminLinks[2],adminLinks[4],adminLinks[8],adminLinks[13]]:handlerLinks.slice(0,5);async function logout(){setBusy(true);try{const {error}=await createClient().auth.signOut();if(error)throw error;router.replace('/');router.refresh()}finally{setBusy(false)}}return <div className={`portal-shell ${admin?'admin-shell':'handler-shell'}`}><aside className="portal-sidebar"><div className="portal-logo"><EventOpsLogo size="sidebar" href={admin?'/admin':'/handler'} priority /></div><div className="portal-org">EVENT OPERATIONS<span>SKILLO DIY CRAFTS</span></div><nav aria-label={admin?'Admin navigation':'Handler navigation'}>{links.map(([label,href,Icon])=>{const active=href==='/admin'||href==='/handler'?pathname===href:pathname===href||pathname.startsWith(href+'/');return <Link className={`portal-nav-link ${active?'active':''}`} href={href} key={href}><Icon size={17} strokeWidth={1.8}/><span>{label}</span></Link>})}</nav><div className="portal-user"><div className="portal-user-avatar">{name.split(' ').slice(0,2).map(s=>s[0]).join('').toUpperCase()}</div><div className="portal-user-copy"><b>{name}</b><small>{admin?'Administrator':cityName?`Handler · ${cityName}`:'Handler'}</small></div><button className="portal-logout" onClick={logout} disabled={busy} aria-label="Sign out"><LogOut size={15}/></button></div></aside><div className="portal-main"><header className="portal-topbar"><div className="portal-breadcrumb">{admin?'Admin Workspace':'Handler Workspace'}<span>/</span>{links.find(([,href])=>href==='/'+pathname.split('/').slice(1,3).join('/'))?.[0]??(admin?'Dashboard':'Home')}</div>{admin&&<><AdminGlobalSearch/><Link className="portal-city-switch" href="/admin/cities"><MapPin size={14}/>{cityName??'All cities'}<span>Change</span></Link></>}<span className="portal-env">{busy?'Signing out…':admin?'SKILLO · ADMIN':'SKILLO · HANDLER'}</span></header>{children}</div><nav className="handler-bottom-nav" aria-label="Quick navigation">{mobileLinks.map(([label,href,Icon])=><Link key={href} href={href} className={pathname===href||pathname.startsWith(href+'/')?'active':''}><Icon size={18}/><small>{label==='Checklist / Tasks'?'Tasks':label==='Notifications'?'Inbox':label}</small></Link>)}</nav></div>}
+
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useState } from 'react';
+import {
+  Activity, BarChart3, Bell, Boxes, Building2, CalendarDays, ClipboardCheck,
+  Coins, CreditCard, FileText, LayoutDashboard, LogOut, MapPin, ShieldCheck,
+  Users, Wallet, BriefcaseBusiness, UserRoundCheck, Menu, X,
+} from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import AdminGlobalSearch from '@/components/admin-global-search';
+import EventOpsLogo from '@/components/eventops-logo';
+
+const adminLinks = [
+  ['Dashboard', '/admin', LayoutDashboard],
+  ['Calendar', '/admin/calendar', CalendarDays],
+  ['Events', '/admin/events', BriefcaseBusiness],
+  ['Handler Management', '/admin/handlers', Users],
+  ['Pending Verifications', '/admin/handler-applications', UserRoundCheck],
+  ['Cities / Locations', '/admin/cities', MapPin],
+  ['Expenses & Reimbursements', '/admin/expenses', Coins],
+  ['Notifications', '/admin/notifications', Bell],
+  ['Audit Log', '/admin/audit-log', FileText],
+  ['Settings', '/admin/settings', ShieldCheck],
+] as const;
+
+const handlerLinks = [
+  ['Home', '/handler', LayoutDashboard],
+  ['My Events', '/handler/events', CalendarDays],
+  ['Checklist / Tasks', '/handler/checklist', ClipboardCheck],
+  ['Expenses', '/handler/expenses', Wallet],
+  ['My Profile', '/handler/my-id', CreditCard],
+  ['Notifications', '/handler/notifications', Bell],
+] as const;
+
+export default function PortalShell({
+  children,
+  role,
+  name,
+  cityName,
+}: {
+  children: React.ReactNode;
+  role: 'admin' | 'handler' | null;
+  name: string;
+  cityName: string | null;
+}) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [adminSidebarOpen, setAdminSidebarOpen] = useState(false);
+
+  if (pathname === '/admin/login' || pathname === '/handler/login' || !role) return <>{children}</>;
+
+  const admin = role === 'admin';
+  const links = admin ? adminLinks : handlerLinks;
+  const mobileLinks = admin ? adminLinks : handlerLinks.slice(0, 5);
+
+  async function logout() {
+    setBusy(true);
+    try {
+      const { error } = await createClient().auth.signOut();
+      if (error) throw error;
+      router.replace('/');
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className={`portal-shell ${admin ? 'admin-shell' : 'handler-shell'}`}>
+      {admin && adminSidebarOpen && <button type="button" className="admin-sidebar-backdrop" aria-label="Close admin navigation" onClick={() => setAdminSidebarOpen(false)} />}
+      <aside className={`portal-sidebar ${adminSidebarOpen ? 'is-open' : ''}`} id="admin-portal-sidebar">
+        <div className="portal-logo"><EventOpsLogo size="sidebar" href={admin ? '/admin' : '/handler'} priority /></div>
+        <div className="portal-org">EVENT OPERATIONS<span>SKILLO DIY CRAFTS</span></div>
+        <nav aria-label={admin ? 'Admin navigation' : 'Handler navigation'}>
+          {links.map(([label, href, Icon]) => {
+            const active = href === '/admin' || href === '/handler'
+              ? pathname === href
+              : pathname === href || pathname.startsWith(`${href}/`);
+            return <Link className={`portal-nav-link ${active ? 'active' : ''}`} href={href} key={href} onClick={() => setAdminSidebarOpen(false)}>
+              <Icon size={17} strokeWidth={1.8}/><span>{label}</span>
+            </Link>;
+          })}
+        </nav>
+        <div className="portal-user">
+          <div className="portal-user-avatar">{name.split(' ').slice(0, 2).map(s => s[0]).join('').toUpperCase()}</div>
+          <div className="portal-user-copy"><b>{name}</b><small>{admin ? 'Administrator' : cityName ? `Handler · ${cityName}` : 'Handler'}</small></div>
+          <button className="portal-logout" onClick={logout} disabled={busy} aria-label="Sign out"><LogOut size={15}/></button>
+        </div>
+      </aside>
+      <div className="portal-main">
+        <header className="portal-topbar">
+          {admin && <button type="button" className="admin-mobile-menu" aria-label="Open admin navigation" aria-expanded={adminSidebarOpen} aria-controls="admin-portal-sidebar" onClick={() => setAdminSidebarOpen(open => !open)}>{adminSidebarOpen ? <X size={18}/> : <Menu size={18}/>}</button>}
+          <div className="portal-breadcrumb">{admin ? 'Admin Workspace' : 'Handler Workspace'}<span>/</span>{links.find(([, href]) => href === `/${pathname.split('/').slice(1, 3).join('/')}`)?.[0] ?? (admin ? 'Dashboard' : 'Home')}</div>
+          {admin && <><AdminGlobalSearch/><Link className="portal-city-switch" href="/admin/cities"><MapPin size={14}/>{cityName ?? 'All cities'}<span>Change</span></Link></>}
+          <span className="portal-env">{busy ? 'Signing out…' : admin ? 'SKILLO · ADMIN' : 'SKILLO · HANDLER'}</span>
+        </header>
+        {children}
+      </div>
+      {!admin && <nav className="handler-bottom-nav" aria-label="Handler quick navigation">
+        {mobileLinks.map(([label, href, Icon]) => <Link key={href} href={href} className={pathname === href || pathname.startsWith(`${href}/`) ? 'active' : ''}>
+          <Icon size={18}/><small>{label === 'Checklist / Tasks' ? 'Tasks' : label === 'Notifications' && !admin ? 'Inbox' : label}</small>
+        </Link>)}
+      </nav>}
+    </div>
+  );
+}
