@@ -1,2 +1,20 @@
-import PortalShell from '@/components/portal-shell';import {createClient} from '@/lib/supabase/server';import {hasSupabaseConfig} from '@/lib/supabase/config';
-export default async function AdminLayout({children}:{children:React.ReactNode}){if(!hasSupabaseConfig())return <PortalShell role={null} name="Administrator" cityName={null}>{children}</PortalShell>;const supabase=await createClient(),{data:{user}}=await supabase.auth.getUser();let role:'admin'|'handler'|null=null,name='Administrator',cityName:string|null=null;if(user){const {data:p}=await supabase.from('profiles').select('role,full_name,cities!profiles_home_city_id_fkey(name)').eq('id',user.id).maybeSingle();if(p){role=p.role==='super_admin'||p.role==='city_admin'?'admin':p.role==='handler'?'handler':null;name=p.full_name;cityName=(p as any).cities?.name??null}}return <PortalShell role={role} name={name} cityName={cityName}>{children}</PortalShell>}
+import PortalShell from '@/components/portal-shell';
+import { hasSupabaseConfig } from '@/lib/supabase/config';
+import { getCachedUserProfile } from '@/lib/supabase/cached-auth';
+
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  if (!hasSupabaseConfig()) return <PortalShell role="admin" name="Administrator" cityName={null}>{children}</PortalShell>;
+
+  const profile = await getCachedUserProfile();
+  let role: 'admin' | 'handler' | null = 'admin';
+  let name = 'Administrator';
+  let cityName: string | null = null;
+
+  if (profile) {
+    role = profile.role === 'super_admin' || profile.role === 'city_admin' ? 'admin' : profile.role === 'handler' ? 'handler' : 'admin';
+    name = profile.full_name || name;
+    cityName = profile.cityName;
+  }
+
+  return <PortalShell role={role} name={name} cityName={cityName}>{children}</PortalShell>;
+}

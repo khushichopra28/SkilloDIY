@@ -18,7 +18,7 @@ const adminLinks = [
   ['Events', '/admin/events', BriefcaseBusiness],
   ['Handler Management', '/admin/handlers', Users],
   ['Pending Verifications', '/admin/handler-applications', UserRoundCheck],
-  ['Cities / Locations', '/admin/cities', MapPin],
+  ['City Selection', '/admin/cities', MapPin],
   ['Expenses & Reimbursements', '/admin/expenses', Coins],
   ['Notifications', '/admin/notifications', Bell],
   ['Audit Log', '/admin/audit-log', FileText],
