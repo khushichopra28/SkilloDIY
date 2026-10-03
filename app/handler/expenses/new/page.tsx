@@ -1,2 +1,3 @@
 import ExpenseForm from '@/components/expense-form';
-export default function NewExpensePage(){return <ExpenseForm/>}
+import {createClient} from '@/lib/supabase/server';
+export default async function NewExpensePage(){const db=await createClient(),{data:{user}}=await db.auth.getUser();if(!user)return null;const {data,error}=await db.from('event_assignments').select('events(id,event_code,name,event_date,status)').eq('handler_id',user.id).in('status',['assigned','acknowledged']).order('assigned_at',{ascending:false}).limit(200);if(error)throw new Error('Assigned events could not be loaded.');const events=(data??[]).map(a=>a.events).filter(Boolean) as any[];return <ExpenseForm initialEvents={events}/>}

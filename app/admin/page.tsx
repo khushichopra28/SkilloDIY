@@ -19,11 +19,11 @@ export default async function AdminDashboard() {
     supabase.from('events').select('id', { count: 'exact', head: true }).eq('status', 'active'),
     supabase.from('attendance').select('id,events!inner(event_date)', { count: 'exact', head: true }).eq('events.event_date', today).not('check_in_at', 'is', null),
     supabase.from('events').select('id', { count: 'exact', head: true }).eq('status', 'completed').gte('event_date', monthStart),
-    supabase.from('events').select('id,event_code,name,type,event_date,expected_arrival_time,client_name,activity:activities(name),city,venue,status,required_handlers,cities(name,code),event_assignments(id,handler_id,status,profiles(full_name,handler_id)),attendance(handler_id,check_in_at,arrival_status),checklist_items(id,completed_at)').eq('status', 'active').order('event_date').limit(20),
+    supabase.from('events').select('id,event_code,name,type,event_date,expected_arrival_time,client_name,activity_name,activity:activities(name),city,venue,status,required_handlers,cities(name,code),event_assignments(id,handler_id,status,profiles(full_name,handler_id)),attendance(handler_id,check_in_at,arrival_status),checklist_items(id,completed_at)').eq('status', 'active').order('event_date').limit(20),
     supabase.from('expenses').select('id,category,amount,status,created_at,profiles(full_name,handler_id),events(name,event_code,city)').in('status', ['submitted', 'under_review']).order('created_at', { ascending: false }).limit(6),
     supabase.from('event_timeline').select('id,action,details,created_at,profiles(full_name),events(name,event_code)').order('created_at', { ascending: false }).limit(7),
     supabase.from('handler_applications').select('id', { count: 'exact', head: true }).eq('status', 'verification_pending'),
-    supabase.from('events').select('id,event_code,name,event_date,expected_arrival_time,client_name,activity:activities(name),city,venue,status,required_handlers,event_assignments(id)').eq('event_date', today).order('expected_arrival_time'),
+    supabase.from('events').select('id,event_code,name,event_date,expected_arrival_time,client_name,activity_name,activity:activities(name),city,venue,status,required_handlers,event_assignments(id)').eq('event_date', today).order('expected_arrival_time').limit(100),
   ]);
 
   const activeRows = (activeEvents.data ?? []) as any[];
@@ -95,7 +95,7 @@ export default async function AdminDashboard() {
                 <Link href={`/admin/events/${e.id}`} className="live-event-line" key={e.id}>
                   <div className="live-event-main">
                     <b>{e.name}</b>
-                    <small>{e.event_code} · {e.city} · {e.venue} · {e.activity?.name ?? 'Activity not set'}</small>
+                    <small>{e.event_code} · {e.city} · {e.venue} · {e.activity_name ?? e.activity?.name ?? 'Activity not set'}</small>
                     <small>Client · {e.client_name ?? '—'} · Expected handler arrival {formatEventTime(e.expected_arrival_time)}</small>
                     <div className="live-event-numbers">
                       <span>{team.length} assigned</span>
@@ -191,7 +191,7 @@ function TodaySchedule({ events }: { events: any[] }) {
           <span className="schedule-time">ARRIVAL<br />{formatEventTime(e.expected_arrival_time)}</span>
           <div>
             <b>{e.name}</b>
-            <small><MapPin size={11} />{e.city} · {e.venue} · {e.activity?.name ?? 'Activity not set'} · {e.client_name ?? '—'} · {e.event_assignments?.length ?? 0}/{e.required_handlers} handlers</small>
+            <small><MapPin size={11} />{e.city} · {e.venue} · {e.activity_name ?? e.activity?.name ?? 'Activity not set'} · {e.client_name ?? '—'} · {e.event_assignments?.length ?? 0}/{e.required_handlers} handlers</small>
           </div>
           <span className={`table-status ${e.status}`}>{e.status}</span>
         </Link>

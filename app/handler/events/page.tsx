@@ -1,2 +1,3 @@
+import {createClient} from '@/lib/supabase/server';
 import HandlerEvents from '@/components/handler-events';
-export default function HandlerEventsPage(){return <HandlerEvents/>}
+export default async function HandlerEventsPage(){const db=await createClient(),{data:{user}}=await db.auth.getUser();if(!user)return null;const {data,error}=await db.from('event_assignments').select('id,event_id,responsibility,status,events(id,event_code,name,type,event_date,expected_arrival_time,client_name,expected_participants,venue,city,status,activity_name,activity:activities(name),cities(name,code))').eq('handler_id',user.id).order('assigned_at',{ascending:false}).limit(200);if(error)throw new Error('Assigned events could not be loaded.');return <HandlerEvents initialRows={(data??[]) as any}/>}

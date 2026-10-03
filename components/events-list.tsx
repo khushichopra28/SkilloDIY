@@ -1,34 +1,23 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CalendarDays, ChevronLeft, ChevronRight, MapPin, Plus, Search } from 'lucide-react';
-import { listEvents } from '@/lib/services/events';
 import type { EventRecord, EventStatus } from '@/types/domain';
 
 const statuses: EventStatus[] = ['draft', 'upcoming', 'active', 'completed', 'cancelled', 'archived'];
 
-export default function EventsList() {
-  const [events, setEvents] = useState<EventRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+export default function EventsList({initialEvents}:{initialEvents:EventRecord[]}) {
+  const [events] = useState<EventRecord[]>(initialEvents);
   const [term, setTerm] = useState('');
   const [city, setCity] = useState('all');
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(0);
-  async function load() {
-    setLoading(true); setError('');
-    try { setEvents(await listEvents()); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not load events.'); }
-    finally { setLoading(false); }
-  }
-  useEffect(() => { void load(); }, []);
-
   const cities = Array.from(new Map(events.map(event => [event.city_id, { id: event.city_id, name: event.cities?.name ?? event.city }])).values());
   const filtered = useMemo(() => events.filter(event =>
     (city === 'all' || event.city_id === city) &&
     (status === 'all' || event.status === status) &&
-    `${event.event_code} ${event.name} ${event.city} ${event.venue} ${event.client_name ?? ''} ${event.activity?.name ?? ''}`.toLowerCase().includes(term.toLowerCase())
+    `${event.event_code} ${event.name} ${event.city} ${event.venue} ${event.client_name ?? ''} ${event.activity_name ?? event.activity?.name ?? ''}`.toLowerCase().includes(term.toLowerCase())
   ), [events, city, status, term]);
   const pageSize = 10, pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const rows = filtered.slice(page * pageSize, (page + 1) * pageSize);
@@ -37,10 +26,10 @@ export default function EventsList() {
     <header className="data-heading"><div><div className="eyebrow">EVENT OPERATIONS</div><h1>Events</h1><p>Plan and follow events across your available cities.</p></div><Link className="button button-primary" href="/admin/events/new"><Plus size={15}/> Create event</Link></header>
     <section className="data-panel">
       <div className="data-toolbar"><label className="data-search"><Search size={15}/><input value={term} onChange={event => { setTerm(event.target.value); setPage(0); }} placeholder="Search event, client, activity or venue"/></label><select aria-label="Filter by city" value={city} onChange={event => { setCity(event.target.value); setPage(0); }}><option value="all">All available cities</option>{cities.map(item => <option value={item.id ?? ''} key={item.id}>{item.name}</option>)}</select><select aria-label="Filter by status" value={status} onChange={event => { setStatus(event.target.value); setPage(0); }}><option value="all">All statuses</option>{statuses.map(item => <option key={item} value={item}>{item.replace('_', ' ')}</option>)}</select></div>
-      {loading ? <div className="data-state">Loading events…</div> : error ? <div className="data-state data-error" role="alert">{error}<button className="button button-secondary" onClick={load}>Try again</button></div> : rows.length === 0 ? <div className="data-state"><CalendarDays size={22}/><b>No events found</b><span>Change the filters or create a new event.</span><Link className="button button-secondary" href="/admin/events/new">Create event</Link></div> : <>
-        <div className="table-scroll"><table className="events-table"><thead><tr><th>EVENT</th><th>CITY & VENUE</th><th>EVENT DATE</th><th>HANDLERS</th><th>STATUS</th><th/></tr></thead><tbody>{rows.map(event => <tr key={event.id}>
-          <td><Link href={`/admin/events/${event.id}`} className="table-event-name">{event.name}</Link><small>{event.event_code} · {event.type}</small><small>{event.activity?.name ?? 'Activity not set'} · {event.client_name ?? 'Legacy client'}</small></td>
-          <td><span className="table-location"><MapPin size={13}/>{event.cities?.name ?? event.city}</span><small>{event.venue}</small></td>
+      {rows.length === 0 ? <div className="data-state"><CalendarDays size={22}/><b>No events found</b><span>Change the filters or create a new event.</span><Link className="button button-secondary" href="/admin/events/new">Create event</Link></div> : <>
+        <div className="table-scroll"><table className="events-table"><thead><tr><th>EVENT</th><th>CITY</th><th>VENUE</th><th>EVENT DATE</th><th>HANDLERS</th><th>STATUS</th><th/></tr></thead><tbody>{rows.map(event => <tr key={event.id}>
+          <td><Link href={`/admin/events/${event.id}`} className="table-event-name">{event.name}</Link><small>{event.event_code} · {event.type}</small><small>{event.activity_name ?? event.activity?.name ?? 'Activity not set'} · {event.client_name ?? 'Legacy client'}</small></td>
+          <td><span className="table-location"><MapPin size={13}/>{event.cities?.name ?? event.city}</span></td><td>{event.venue}</td>
           <td>{formatDate(event.event_date)}<small>Expected handler arrival · {formatTime(event.expected_arrival_time)}</small></td>
           <td>{event.required_handlers}</td><td><span className={`table-status ${event.status}`}>{event.status.replace('_', ' ')}</span></td><td><Link className="link-small" href={`/admin/events/${event.id}`}>Open</Link></td>
         </tr>)}</tbody></table></div>
