@@ -3,7 +3,7 @@ import {createClient} from '@/lib/supabase/server';
 import {HandlerEventWorkspace} from '@/components/event-detail';
 export default async function HandlerEventPage({params}:{params:Promise<{eventId:string}>}){
   const {eventId}=await params,supabase=await createClient(),{data:{user}}=await supabase.auth.getUser();if(!user)notFound();
-  const {data:event,error}=await supabase.from('events').select('*,cities(name,code),legacy_client:clients(name),activity:activities(name)').eq('id',eventId).maybeSingle();if(error||!event)notFound();
+  const {data:event,error}=await supabase.from('events').select('*,cities(name,code),legacy_client:clients(name),activity:activities(name),venue_record:venues!events_venue_id_fkey(name,address,google_place_id,latitude,longitude)').eq('id',eventId).maybeSingle();if(error||!event)notFound();
   const [assignmentResult,tasksResult,attendanceResult,timelineResult]=await Promise.all([
     supabase.from('event_assignments').select('id,handler_id,role,responsibility,status,profiles!event_assignments_handler_id_fkey(id,handler_id,full_name,job_title,email)').eq('event_id',eventId).eq('handler_id',user.id).maybeSingle(),
     supabase.from('checklist_items').select('id,title,priority,assigned_to,completed_at,note').eq('event_id',eventId).order('sort_order').limit(200),

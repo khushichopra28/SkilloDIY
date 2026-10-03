@@ -16,12 +16,13 @@ export default function HandlerEvents({initialRows}:{initialRows:Assignment[]}) 
   const [rows] = useState<Assignment[]>(initialRows);
   const [term, setTerm] = useState('');
   const [range, setRange] = useState('upcoming');
+  const todayInIndia = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const filtered = useMemo(() => rows.filter(assignment => {
     const event = assignment.events;
     if (!event) return false;
-    const upcoming = new Date(`${event.event_date}T23:59:00`).getTime() >= Date.now() && event.status !== 'completed' && event.status !== 'cancelled';
+    const upcoming = event.event_date.slice(0, 10) >= todayInIndia && event.status !== 'completed' && event.status !== 'cancelled';
     return (range === 'upcoming' ? upcoming : !upcoming) && `${event.event_code} ${event.name} ${event.venue} ${event.city} ${event.client_name ?? ''} ${event.activity_name ?? event.activity?.name ?? ''}`.toLowerCase().includes(term.toLowerCase());
-  }), [rows, range, term]);
+  }), [rows, range, term, todayInIndia]);
 
   return <main className="data-page handler-events-page">
     <header className="data-heading"><div><div className="eyebrow">MY WORK</div><h1>My events</h1><p>Your assigned event schedule and event-day workspaces.</p></div><div className="handler-filters"><button className={`button ${range === 'upcoming' ? 'button-primary' : 'button-secondary'}`} onClick={() => setRange('upcoming')}>Upcoming</button><button className={`button ${range === 'past' ? 'button-primary' : 'button-secondary'}`} onClick={() => setRange('past')}>Past events</button></div></header>
